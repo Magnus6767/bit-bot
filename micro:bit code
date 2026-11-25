@@ -1,0 +1,65 @@
+let cmd = ""
+let state = ""
+let lastSignal = 0
+
+bluetooth.onBluetoothConnected(function () {
+    basic.showIcon(IconNames.Yes)
+})
+
+bluetooth.onBluetoothDisconnected(function () {
+    state = ""
+    bitbot.stop(BBStopMode.Brake)
+    music.stopAllSounds()
+    basic.showIcon(IconNames.Sad)
+})
+
+bluetooth.onUartDataReceived(serial.delimiters(Delimiters.NewLine), function () {
+    cmd = bluetooth.uartReadUntil(serial.delimiters(Delimiters.NewLine)).trim().toUpperCase()
+    lastSignal = input.runningTime()
+    bluetooth.uartWriteString("MOTTATT " + cmd + "\n")
+
+    if (cmd.indexOf("ALARM") >= 0) {
+        if (state != "ALARM") {
+            state = "ALARM"
+            bitbot.stop(BBStopMode.Brake)
+            basic.showIcon(IconNames.Asleep)
+            music.startMelody(music.builtInMelody(Melodies.Chase), MelodyOptions.Forever)
+        }
+    } else if (cmd.indexOf("LEFT") >= 0) {
+        if (state != "LEFT") {
+            state = "LEFT"
+            music.stopAllSounds()
+            basic.showArrow(ArrowNames.West)
+        }
+        bitbot.rotate(BBRobotDirection.Left, 60)
+    } else if (cmd.indexOf("RIGHT") >= 0) {
+        if (state != "RIGHT") {
+            state = "RIGHT"
+            music.stopAllSounds()
+            basic.showArrow(ArrowNames.East)
+        }
+        bitbot.rotate(BBRobotDirection.Right, 60)
+    } else if (cmd.indexOf("GO") >= 0) {
+        if (state != "GO") {
+            state = "GO"
+            music.stopAllSounds()
+            basic.showIcon(IconNames.Happy)
+        }
+        bitbot.go(BBDirection.Forward, 80)
+    } else {
+        basic.showIcon(IconNames.Confused)
+    }
+})
+
+basic.forever(function () {
+    if (state != "" && state != "ALARM" && input.runningTime() - lastSignal > 3000) {
+        state = ""
+        bitbot.stop(BBStopMode.Brake)
+        basic.showIcon(IconNames.Sad)
+    }
+    basic.pause(200)
+})
+
+pins.analogSetPitchPin(AnalogPin.P14)
+bluetooth.startUartService()
+basic.showIcon(IconNames.Heart)
